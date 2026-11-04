@@ -190,4 +190,4 @@ Focused pull requests and thoughtful issues are welcome. Keep changes small, doc
 
 ## License
 
-No license has been selected yet. Until one is added, all rights are reserved by the repository owner.
+WraithForge is released under the [MIT License](LICENSE).
