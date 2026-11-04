@@ -1,0 +1,17 @@
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local environment and runtime files
+.env
+.env.*
+!.env.example
+*.log
+
+# Go build output
+backend/bin/
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/

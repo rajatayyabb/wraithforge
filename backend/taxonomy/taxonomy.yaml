@@ -1,0 +1,19 @@
+assets:
+  - kind: Target
+    fields:
+      - name: identifier
+        type: string
+      - name: label
+        type: string
+  - kind: Port
+    fields:
+      - name: number
+        type: int
+      - name: protocol
+        type: string
+  - kind: Service
+    fields:
+      - name: name
+        type: string
+      - name: version
+        type: string

@@ -1,0 +1,61 @@
+type Flow {
+  id: ID!
+  title: String!
+  goal: String!
+  status: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Task {
+  id: ID!
+  flowId: ID!
+  title: String!
+  status: String!
+  position: Int!
+}
+
+type Subtask {
+  id: ID!
+  taskId: ID!
+  title: String!
+  status: String!
+  position: Int!
+}
+
+type AgentLog {
+  id: ID!
+  flowId: ID!
+  agentRole: String!
+  message: String!
+  createdAt: String!
+}
+
+type Result {
+  id: ID!
+  flowId: ID!
+  taskId: ID
+  title: String!
+  summary: String!
+  detail: String
+  createdAt: String!
+}
+
+type CostSummary {
+  model: String!
+  inputTokens: Int!
+  outputTokens: Int!
+  costUsd: Float!
+}
+
+type Query {
+  flows: [Flow!]!
+  tasks(flowId: ID!): [Task!]!
+  subtasks(taskId: ID!): [Subtask!]!
+  results(flowId: ID!): [Result!]!
+  costSummary(flowId: ID!): [CostSummary!]!
+}
+
+type Subscription {
+  agentLogs(flowId: ID!): AgentLog!
+}
