@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Flow, Task, fetchFlows, fetchTasks } from './providers/api'
 import FlowTerminal from './features/flows/FlowTerminal'
 import TaskTree from './features/tasks/TaskTree'
+import FindingsPanel from './features/findings/FindingsPanel'
 
 export default function App() {
   const [flows, setFlows] = useState<Flow[]>([])
@@ -42,7 +43,10 @@ export default function App() {
       </header>
       <main className="flex-1 grid grid-cols-2 gap-3 p-3 min-h-0">
         {selectedFlowId ? <FlowTerminal flowId={selectedFlowId} /> : <div />}
-        <TaskTree tasks={tasks} />
+        <div className="grid grid-rows-2 gap-3 min-h-0">
+          <TaskTree tasks={tasks} />
+          {selectedFlowId ? <FindingsPanel flowId={selectedFlowId} /> : <div />}
+        </div>
       </main>
     </div>
   )

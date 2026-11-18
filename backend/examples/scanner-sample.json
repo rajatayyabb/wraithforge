@@ -1,0 +1,27 @@
+{
+  "tool": "dep-scan",
+  "findings": [
+    {
+      "target": "pkg:npm/lodash@4.17.11",
+      "id": "CVE-2019-10744",
+      "severity": "high",
+      "type": "vulnerable-dependency",
+      "description": "Prototype pollution in lodash before 4.17.12.",
+      "evidence": "lodash@4.17.11 is used by frontend; fixed in 4.17.12."
+    },
+    {
+      "target": "pkg:npm/minimist@1.2.0",
+      "id": "CVE-2020-7598",
+      "severity": "medium",
+      "type": "vulnerable-dependency",
+      "description": "Prototype pollution in minimist before 1.2.3."
+    },
+    {
+      "asset": "web.example.test:3306/tcp",
+      "title": "Database port reachable from scan host",
+      "severity": "high",
+      "category": "exposure",
+      "description": "MySQL 8.0.36 is reachable on a non-loopback interface. Confirm this is intended and firewalled to app hosts only."
+    }
+  ]
+}

@@ -16,13 +16,26 @@ type Limits struct {
 	MemoryBytes int64
 	CPUShares   int64
 	Timeout     time.Duration
+	// PidsLimit caps the number of processes the job may spawn (fork-bomb
+	// protection). Zero means "use the default".
+	PidsLimit int64
+	// User, when set, runs the container process as this uid[:gid] instead of
+	// the image default (which is often root).
+	User string
+	// AllowNetwork, when false (the default), starts the container with no
+	// network access at all. Triage jobs read local files and should not need
+	// the network; leaving it off removes a large class of risk.
+	AllowNetwork bool
 }
 
 func DefaultLimits() Limits {
 	return Limits{
-		MemoryBytes: 256 * 1024 * 1024,
-		CPUShares:   512,
-		Timeout:     60 * time.Second,
+		MemoryBytes:  256 * 1024 * 1024,
+		CPUShares:    512,
+		Timeout:      60 * time.Second,
+		PidsLimit:    256,
+		User:         "65534:65534", // nobody:nogroup
+		AllowNetwork: false,
 	}
 }
 
@@ -49,16 +62,38 @@ func (r *Runner) Run(ctx context.Context, cmd []string, limits Limits, out chan<
 	ctx, cancel := context.WithTimeout(ctx, limits.Timeout)
 	defer cancel()
 
+	netMode := container.NetworkMode("none")
+	if limits.AllowNetwork {
+		netMode = container.NetworkMode("bridge")
+	}
+
+	resources := container.Resources{
+		Memory:    limits.MemoryBytes,
+		CPUShares: limits.CPUShares,
+	}
+	if limits.PidsLimit > 0 {
+		pids := limits.PidsLimit
+		resources.PidsLimit = &pids
+	}
+
 	resp, err := r.cli.ContainerCreate(ctx, &container.Config{
-		Image:      r.image,
-		Cmd:        cmd,
-		Tty:        false,
-		StopSignal: "SIGKILL",
+		Image:           r.image,
+		Cmd:             cmd,
+		Tty:             false,
+		StopSignal:      "SIGKILL",
+		User:            limits.User,
+		NetworkDisabled: !limits.AllowNetwork,
 	}, &container.HostConfig{
-		AutoRemove: false,
-		Resources: container.Resources{
-			Memory:    limits.MemoryBytes,
-			CPUShares: limits.CPUShares,
+		AutoRemove:     false,
+		NetworkMode:    netMode,
+		ReadonlyRootfs: true,
+		CapDrop:        []string{"ALL"},
+		SecurityOpt:    []string{"no-new-privileges"},
+		Resources:      resources,
+		// A small writable tmpfs so jobs that need scratch space still work
+		// despite the read-only root filesystem.
+		Tmpfs: map[string]string{
+			"/tmp": "rw,noexec,nosuid,size=64m",
 		},
 	}, nil, nil, "")
 	if err != nil {

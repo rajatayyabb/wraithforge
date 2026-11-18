@@ -33,6 +33,22 @@ export type AgentLog = {
   createdAt: string
 }
 
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+
+export type Finding = {
+  id: string
+  flowId: string
+  sourceTool: string
+  asset: string
+  title: string
+  severity: Severity
+  category: string
+  description: string
+  evidence: string
+  fingerprint: string
+  createdAt: string
+}
+
 function headers() {
   return { Authorization: `Bearer ${API_TOKEN}` }
 }
@@ -52,6 +68,12 @@ export async function fetchTasks(flowId: string): Promise<Task[]> {
 export async function fetchSubtasks(taskId: string): Promise<Subtask[]> {
   const res = await fetch(`/api/tasks/${taskId}/subtasks`, { headers: headers() })
   if (!res.ok) throw new Error(`fetchSubtasks: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchFindings(flowId: string): Promise<Finding[]> {
+  const res = await fetch(`/api/flows/${flowId}/findings`, { headers: headers() })
+  if (!res.ok) throw new Error(`fetchFindings: ${res.status}`)
   return res.json()
 }
 
