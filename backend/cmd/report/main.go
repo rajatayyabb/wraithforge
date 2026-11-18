@@ -56,13 +56,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	findings, err := db.ListFindingsByFlow(ctx, *flowID)
+	if err != nil {
+		fmt.Println("list findings error:", err)
+		os.Exit(1)
+	}
+
+	severities, err := db.FindingSeveritySummary(ctx, *flowID)
+	if err != nil {
+		fmt.Println("severity summary error:", err)
+		os.Exit(1)
+	}
+
 	costs, err := db.CostSummaryByFlow(ctx, *flowID)
 	if err != nil {
 		fmt.Println("cost summary error:", err)
 		os.Exit(1)
 	}
 
-	md := report.RenderMarkdown(report.FlowReportData{Flow: *flow, Results: results, Costs: costs})
+	md := report.RenderMarkdown(report.FlowReportData{
+		Flow:       *flow,
+		Results:    results,
+		Findings:   findings,
+		Severities: severities,
+		Costs:      costs,
+	})
 
 	if *out == "" {
 		fmt.Print(md)

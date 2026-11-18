@@ -8,9 +8,11 @@ import (
 )
 
 type FlowReportData struct {
-	Flow    database.Flow
-	Results []database.Result
-	Costs   []database.CostSummary
+	Flow       database.Flow
+	Results    []database.Result
+	Findings   []database.Finding
+	Severities []database.SeverityCount
+	Costs      []database.CostSummary
 }
 
 // RenderMarkdown builds a plain Markdown report from a flow's recorded
@@ -33,6 +35,36 @@ func RenderMarkdown(data FlowReportData) string {
 		fmt.Fprintf(&b, "%s\n\n", r.Summary)
 		if r.Detail != "" {
 			fmt.Fprintf(&b, "```\n%s\n```\n\n", r.Detail)
+		}
+	}
+
+	b.WriteString("## Triage Findings\n\n")
+	if len(data.Findings) == 0 {
+		b.WriteString("_No findings recorded._\n\n")
+	} else {
+		if len(data.Severities) > 0 {
+			b.WriteString("| Severity | Count |\n|---|---|\n")
+			for _, s := range data.Severities {
+				fmt.Fprintf(&b, "| %s | %d |\n", s.Severity, s.Count)
+			}
+			b.WriteString("\n")
+		}
+		for _, f := range data.Findings {
+			fmt.Fprintf(&b, "### [%s] %s\n\n", strings.ToUpper(f.Severity), f.Title)
+			if f.Asset != "" {
+				fmt.Fprintf(&b, "**Asset:** %s  \n", f.Asset)
+			}
+			fmt.Fprintf(&b, "**Source:** %s", f.SourceTool)
+			if f.Category != "" {
+				fmt.Fprintf(&b, " · **Category:** %s", f.Category)
+			}
+			b.WriteString("\n\n")
+			if f.Description != "" {
+				fmt.Fprintf(&b, "%s\n\n", f.Description)
+			}
+			if f.Evidence != "" {
+				fmt.Fprintf(&b, "```\n%s\n```\n\n", f.Evidence)
+			}
 		}
 	}
 

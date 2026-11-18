@@ -21,12 +21,13 @@ func New(db *database.DB) *Server {
 	s := &Server{db: db, engine: r}
 
 	api := r.Group("/api")
-	api.Use(AuthMiddleware())
+	api.Use(AuthMiddleware(db))
 	api.GET("/flows", s.listFlows)
 	api.GET("/flows/:flowId/tasks", s.listTasks)
 	api.GET("/tasks/:taskId/subtasks", s.listSubtasks)
 	api.GET("/flows/:flowId/agent-logs/stream", s.streamAgentLogs)
 	api.GET("/flows/:flowId/results", s.listResults)
+	api.GET("/flows/:flowId/findings", s.listFindings)
 	api.GET("/flows/:flowId/cost-summary", s.costSummary)
 
 	return s
@@ -73,6 +74,16 @@ func (s *Server) listResults(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, results)
+}
+
+func (s *Server) listFindings(c *gin.Context) {
+	flowID := c.Param("flowId")
+	findings, err := s.db.ListFindingsByFlow(c.Request.Context(), flowID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, findings)
 }
 
 func (s *Server) costSummary(c *gin.Context) {

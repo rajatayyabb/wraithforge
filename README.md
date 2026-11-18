@@ -4,9 +4,9 @@
 
 ### Observe. Orchestrate. Explain.
 
-A transparent control plane for multi-agent workflows: plan work, run bounded jobs, stream execution logs, track costs, and produce auditable reports.
+**A transparent operations cockpit for workflows, sandboxed jobs, and defensive security triage.**
 
-[![Status: Scaffold](https://img.shields.io/badge/status-scaffold-a855f7?style=for-the-badge)](https://github.com/rajatayyabb/wraithforge)
+[![Status: Beta Scaffold](https://img.shields.io/badge/status-beta%20scaffold-a855f7?style=for-the-badge)](https://github.com/rajatayyabb/wraithforge)
 [![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=111827)](https://react.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
@@ -16,87 +16,71 @@ A transparent control plane for multi-agent workflows: plan work, run bounded jo
 
 ---
 
-## The idea
+## The short version
 
-Agent systems are powerful, but power without visibility is difficult to operate. WraithForge is built around a simple principle: every workflow should be understandable while it is running and explainable after it finishes.
+WraithForge helps you answer three questions without digging through a pile of terminals:
 
-The current repository is the orchestration foundation: a Go API, PostgreSQL-backed workflow model, generic Docker job runner, live SSE logs, React dashboard, and Markdown reporting. It intentionally does **not** ship offensive-security logic or target-directed automation.
+1. **What is running?** Follow flows, tasks, subtasks, and live agent logs.
+2. **What did the tools report?** Ingest output you generated yourself and normalize it into findings.
+3. **What can a reviewer trust?** Keep evidence, severity, fingerprints, and report context together.
 
-## What is here today
+This release adds a **defensive triage path** on top of the original orchestration scaffold. It parses Nmap XML and scanner JSON that you provide, de-duplicates the results, persists them against a flow, and surfaces them in the API, dashboard, and Markdown report.
 
-| Capability | Implementation |
+> WraithForge does not scan targets, exploit systems, or make exploitability judgments. It organizes and explains output from tools you run yourself in environments you own or are authorized to assess.
+
+## What changed in v2
+
+| Upgrade | Why it matters |
 |---|---|
-| Workflow and task model | PostgreSQL migrations for flows, tasks, subtasks, logs, results, tokens, and costs |
-| API and authentication | Gin REST API with bearer/cookie authentication |
-| Live observability | Server-Sent Events log stream and task tree dashboard |
-| Bounded execution | Generic Docker runner with timeout and resource limits |
-| Reporting | Markdown reports from results and cost data |
-| Extensibility | GraphQL SDL foundation and YAML taxonomy loader |
+| **Triage ingestion** | Parse Nmap XML and flexible scanner JSON into one normalized finding model |
+| **Finding fingerprints** | De-duplicate repeated observations while keeping the most severe copy |
+| **Findings persistence** | Store findings per flow with idempotent database writes |
+| **Findings API** | Fetch severity-ordered findings from `GET /api/flows/:flowId/findings` |
+| **Findings dashboard** | Browse severity-badged, collapsible findings beneath the task tree |
+| **Database-backed tokens** | Store only SHA-256 token hashes and return plaintext once |
+| **SSE-friendly auth** | Support headers, cookies, and query tokens for `EventSource` |
+| **Hardened sandbox defaults** | No network, read-only root filesystem, dropped capabilities, PID limits, and non-root execution |
+| **Audit-ready reports** | Add a triage findings section with a per-severity summary |
 
-## Architecture
+## The v2 data path
 
 ```mermaid
 flowchart LR
-    UI[React + Vite dashboard] -->|REST / SSE| API[Go Gin API]
-    API --> DB[(PostgreSQL + pgvector)]
-    API --> RUN[Sandbox runner]
-    RUN --> JOB[Bounded Docker jobs]
-    API --> REPORT[Markdown reports]
-    API --> TAX[Asset taxonomy]
+    N[Nmap XML] --> T[Triage normalizer]
+    S[Scanner JSON] --> T
+    T --> D[De-duplicate + fingerprint]
+    D --> F[(Findings table)]
+    F --> API[REST API]
+    F --> R[Markdown report]
+    API --> UI[Findings panel]
 ```
 
-## The execution gate
+The system is intentionally passive: **ingest → normalize → persist → explain**.
 
-A future WraithForge execution gate is designed to separate **what ran** from **what was proven**. A result can be recorded without being promoted to a verified conclusion until its expected evidence matches.
+## Core architecture
 
 ```mermaid
-stateDiagram-v2
-  [*] --> Ran
-  Ran --> Failed: exit != 0
-  Ran --> Matched: exit 0
-  Matched --> Verified: expected evidence matches
-  Matched --> Unverified: no evidence match
-  Failed --> Unverified
-  Verified --> [*]
-  Unverified --> [*]
+flowchart TB
+    UI[React dashboard] -->|REST + SSE| API[Go Gin API]
+    API --> DB[(PostgreSQL + pgvector)]
+    API --> SB[Hardened Docker runner]
+    SB --> JOB[Bounded generic job]
+    API --> REP[Markdown reports]
+    TRI[Defensive triage CLI] --> DB
+    TRI --> REP
 ```
 
-The current scaffold stores execution results and logs; verified-finding promotion is part of the planned findings layer below.
+## Safety boundary
 
-## Roadmap
+WraithForge is a defensive orchestration and triage scaffold. It does **not** contain:
 
-The attached WraithForge direction expands the foundation toward a controlled, evidence-first security workflow. These components are **planned and not yet present in this repository**:
+- Exploit-writing or autonomous attack agents
+- Attack-path planning or attack-chain replay
+- Target-directed scanning or exploitation
+- Credential harvesting or offensive payloads
+- Automatic exploitability claims from open ports or scanner output
 
-| Planned layer | Intended role |
-|---|---|
-| Agent authoring | LLM-assisted script generation behind compilation and review gates |
-| Graph planning | Validated DAGs, topological execution, and playbook reuse |
-| Target-aware sandbox specs | Explicit mounts, exit-code capture, network policy, and cleanup guarantees |
-| Findings and verification | ATT&CK mapping, CVSS scoring, evidence matching, and gate reasons |
-| Operations tooling | Doctor command, end-to-end runner, dashboard findings pane, and exports |
-
-This separation is deliberate: the generic runner should remain understandable and safe before target-directed capabilities are introduced.
-
-## Project layout
-
-```text
-wraithforge/
-├── backend/
-│   ├── cmd/
-│   │   ├── orchestrator/    # API server
-│   │   ├── seed/            # Sample-data seeder
-│   │   ├── report/          # Flow report CLI
-│   │   ├── sandboxtest/     # Sandbox smoke test
-│   │   └── taxoncheck/      # Taxonomy validator
-│   ├── migrations/          # PostgreSQL schema migrations
-│   ├── pkg/                 # API, database, sandbox, reports, taxonomy
-│   └── taxonomy/            # Taxonomy definitions
-├── frontend/
-│   ├── src/App.tsx          # Dashboard shell
-│   ├── src/features/        # Flows and tasks UI
-│   └── src/providers/       # API client
-└── README.md
-```
+The triage layer only reads files you already produced. Nmap open ports become informational exposure findings; the system does not decide that an exposed service is exploitable.
 
 ## Quick start
 
@@ -105,10 +89,10 @@ wraithforge/
 - Go **1.24+**
 - Node.js **22+** and npm
 - PostgreSQL with the `pgvector` extension
-- Docker, for sandbox execution
-- [`goose`](https://github.com/pressly/goose), for migration convenience
+- Docker for sandbox smoke tests
+- [`goose`](https://github.com/pressly/goose) for convenient migrations
 
-### Start PostgreSQL
+### 1. Start PostgreSQL
 
 ```bash
 docker run --name wraithforge-db \
@@ -124,70 +108,146 @@ goose -dir backend/migrations postgres "$DATABASE_URL" up
 go run ./backend/cmd/seed
 ```
 
-### Start the API
+### 2. Create a development token
+
+```bash
+go run ./backend/cmd/token -label dev
+```
+
+The command prints the plaintext token once. For a quick local fallback, you can use:
 
 ```bash
 export API_TOKEN=dev-token
+```
+
+### 3. Start the API and dashboard
+
+```bash
 go run ./backend/cmd/orchestrator
 ```
 
-The API listens on `http://localhost:8080`.
-
-### Start the dashboard
+In another terminal:
 
 ```bash
 cd frontend
 npm ci
-VITE_API_TOKEN=dev-token npm run dev
+VITE_API_TOKEN=<token> npm run dev
 ```
 
 Open the Vite URL shown in your terminal.
 
-## Commands
+## Triage your own tool output
+
+### Dry run: parse and summarize
+
+Use the included examples to see the normalizer without touching the database:
+
+```bash
+go run ./backend/cmd/triage \
+  -nmap backend/examples/nmap-sample.xml \
+  -scanner backend/examples/scanner-sample.json
+```
+
+### Persist findings against a flow
+
+```bash
+go run ./backend/cmd/triage \
+  -flow <flow-id> \
+  -db \
+  -nmap scan.xml \
+  -scanner findings.json
+```
+
+Then render the report:
+
+```bash
+go run ./backend/cmd/report -flow <flow-id> -out report.md
+```
+
+Both `-nmap` and `-scanner` are repeatable. Scanner JSON accepts a common object shape such as `{ "tool": "...", "findings": [...] }`, as well as a bare findings array.
+
+## Command center
 
 | Command | Purpose |
 |---|---|
-| `npm run build` | Build the frontend for production |
 | `go run ./backend/cmd/orchestrator` | Start the REST + SSE API |
 | `go run ./backend/cmd/seed` | Insert sample workflow data |
-| `go run ./backend/cmd/sandboxtest -cmd "echo hello"` | Exercise the sandbox runner |
-| `go run ./backend/cmd/report -flow <flow-id> -out report.md` | Render a Markdown report |
-| `go run ./backend/cmd/taxoncheck` | Validate the taxonomy file |
+| `go run ./backend/cmd/token -label dev` | Mint a database-backed API token |
+| `go run ./backend/cmd/triage ...` | Parse, normalize, and optionally persist tool output |
+| `go run ./backend/cmd/report -flow <id> -out report.md` | Render a flow report |
+| `go run ./backend/cmd/sandboxtest -cmd "echo hello"` | Exercise the isolated sandbox |
+| `go run ./backend/cmd/taxoncheck backend/taxonomy/taxonomy.yaml` | Validate the taxonomy |
+| `cd frontend && npm run build` | Build the dashboard for production |
+
+## Repository map
+
+```text
+wraithforge/
+├── backend/
+│   ├── cmd/
+│   │   ├── orchestrator/    # REST + SSE API
+│   │   ├── seed/            # Sample data
+│   │   ├── token/           # API token minting
+│   │   ├── triage/          # Tool-output ingestion CLI
+│   │   ├── report/          # Markdown report CLI
+│   │   ├── sandboxtest/     # Sandbox smoke test
+│   │   └── taxoncheck/      # Taxonomy validator
+│   ├── examples/            # Sample Nmap XML and scanner JSON
+│   ├── migrations/          # PostgreSQL schema, including findings
+│   └── pkg/
+│       ├── database/        # Workflow, token, and findings persistence
+│       ├── report/          # Report generation
+│       ├── sandbox/         # Hardened generic Docker runner
+│       ├── server/          # Authenticated API and SSE stream
+│       └── triage/          # Stdlib-only parsers and normalizer
+├── frontend/
+│   └── src/features/findings/ # Severity-badged findings panel
+├── WHAT_WAS_ADDED.md
+└── README.md
+```
+
+## API surface
+
+```text
+GET /api/flows
+GET /api/flows/:flowId/tasks
+GET /api/flows/:flowId/findings
+GET /api/flows/:flowId/agent-logs/stream?token=<token>
+```
+
+Findings are returned severity-first. The SSE endpoint accepts a query token because browser `EventSource` cannot attach an `Authorization` header.
+
+## Sandbox defaults
+
+The generic Docker runner defaults to controls suitable for bounded local jobs:
+
+- Network disabled
+- Read-only root filesystem
+- Small `noexec,nosuid` temporary filesystem
+- All Linux capabilities dropped
+- `no-new-privileges`
+- PID limit to reduce fork-bomb risk
+- Non-root execution as `nobody`
+- Cleanup on completion, error, and timeout
+
+These controls are not a substitute for a dedicated production isolation boundary. Review them before running untrusted workloads.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `DATABASE_URL` | — | PostgreSQL connection string |
-| `API_TOKEN` | — | Development bearer/cookie secret |
+| `API_TOKEN` | — | Development fallback secret |
 | `VITE_API_TOKEN` | — | Frontend token passed to the API client |
 
-Before deploying beyond local development, replace the development token flow, review Docker isolation settings, lock down CORS and database access, and add production-grade secret management and audit controls.
+Before deployment, replace the development fallback, restrict database access, configure CORS deliberately, and use a proper secret-management system.
 
-## API surface
+## Verification status
 
-```text
-GET /api/flows
-GET /api/flows/:flow-id/tasks
-GET /api/flows/:flow-id/agent-logs/stream?token=<token>
-```
-
-The repository also includes a GraphQL SDL foundation for flows, tasks, subtasks, results, and costs.
-
-## Security and scope
-
-WraithForge is a generic orchestration scaffold. It does not include exploit automation, credential harvesting, target-specific attack workflows, or offensive-security logic. Use the sandbox only for controlled jobs in environments you own or are authorized to test.
-
-Any future target-directed features should preserve the project's core guarantees: explicit scope, bounded execution, evidence-backed conclusions, auditable gate reasons, and reliable cleanup on success, error, or timeout.
-
-## Project status
-
-The frontend builds cleanly with `npm run build`. Backend dependency resolution and compilation should be verified in an environment with normal Go module network access. Production hardening, broader tests, richer workflow controls, and deployment automation remain open areas for development.
-
-## Contributing
-
-Focused pull requests and thoughtful issues are welcome. Keep changes small, document behavior changes, and preserve the emphasis on visibility, containment, and auditability.
+- **Frontend:** `npm ci` and `npm run build` passed during this review, including TypeScript checking.
+- **Go checks:** pending in this review environment because the Go compiler is unavailable.
+- **Before publishing:** run `go test ./backend/pkg/triage/...` and then `go mod tidy && go build ./... && go test ./...` with Go 1.24+ installed.
 
 ## License
 
-WraithForge is released under the [MIT License](LICENSE).
+WraithForge is released under the [MIT License](LICENSE). If this ZIP is being used as a new release archive, copy the repository's `LICENSE` file into the project root before publishing.
